@@ -1,0 +1,790 @@
+ANALYSIS OF LOAN DATA by ANTONIO SANCHEZ HEVIA
+========================================================
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, packages}
+# Load all of the packages that you end up using in your analysis in this code
+# chunk.
+
+# Notice that the parameter "echo" was set to FALSE for this code chunk. This
+# prevents the code from displaying in the knitted HTML output. You should set
+# echo=FALSE for all code chunks in your file, unless it makes sense for your
+# report to show the code that generated a particular plot.
+
+# The other parameters for "message" and "warning" should also be set to FALSE
+# for other code chunks once you have verified that each plot comes out as you
+# want it to. This will clean up the flow of your report.
+
+library(ggplot2)
+library(lattice)
+library(MASS)
+library(GGally) 
+library(scales) 
+library(memisc) 
+library(car) 
+library(dplyr)
+library(ggthemes)
+library(gridExtra)
+library(grid)
+library(reshape)
+library(ggpubr)
+
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Load_the_Data}
+# Load the Data
+pld <- read.csv("prosperLoanData.csv") 
+
+```
+
+# Introduction
+
+The aim of this document is to provide insight into a data set of loan data provided by Prosper. The main goal of the analysis is to find correlations between the interest rate and other existing variables in the data set, such as income range or occupation.
+This document also contains and analysis of different variables related to the top and bottom 10 Occupation by borrower rate. The purpose of this analysis is to understand the reasons behind this individuals getting lower borrower rates. Correlations between variable such as annual income or properties owned (home) and borrower rate have been analysed.
+
+The conclusions of this analysis are detailed on last section.
+
+Out of all the existing variables in the data set, only the following are subject to analysis:
+
+1.BorrowerRate
+
+2.LoanOriginationDate
+
+3.Occupation
+
+4.CreditGrade
+
+5.ProsperScore
+
+6.ProsperRating..Alpha.
+
+7.BorrowerState
+
+8.IsBorrowerHomeowner
+
+9.IncomeRange
+
+10.EmploymentStatus
+
+11.StatedMonthlyIncome
+
+12.ListingCategory..numeric.
+
+13.LoanOriginalAmount
+
+14.LoanOriginationDate
+
+# Univariate Plots Section
+
+**Year of the loan**
+
+The loan origination year is analysed:
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE,Year_of_the_Loan}
+ggplot(aes(format(as.Date(pld[, "LoanOriginationDate"], "%Y-%m-%d"), "%Y")), data = pld)+geom_histogram(stat="count")+
+  xlab("Year") + theme_economist() + ggtitle("Loan Origination Year")
+
+```
+
+
+Seems like the number of loans increased substantially from 2005 to 2008, decreasing at 2009 and recovering at 2011. From 2011 to 2013 there is a dramatic increase in the number of loans originated, hitting a maximum on 2013.
+
+**The Listing Category**
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Listings_for_the_loans}
+listap <- c("Not Available","Debt Consolidation","Home Improvement", "Business", "Personal Loan", "Student Use", "Auto","Other", "Baby&Adoption", "Boat", "Cosmetic Procedure", "Engagement Ring", "Green Loans", "Household Expenses", "Large Purchases", "Medical/Dental", "Motorcycle", "RV", "Taxes", "Vacation", "Wedding Loans")
+ggplot(aes(x =ListingCategory..numeric.), data = pld) + geom_histogram(stat = "count")+scale_x_continuous(breaks = 0:20, labels=listap)+xlab("Listing Category")+coord_flip()+ theme_economist() + ggtitle("Listing Categories")
+
+```
+
+As shown on the graph above, *Debt consolidation* is the most predominant category by a significant difference.The following most relevant categories are *Not Available* and *Other*. Then *Home Improvement* and *Business* are the most relevant categories
+
+**Occupation**
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Occupation}
+blue.bold.italic.16.text <- element_text(face = "bold", size = 5)
+ggplot(aes(x =Occupation), data = pld) + geom_histogram(stat = "count")+coord_flip()+ theme_bw()+ theme_economist()+  theme(axis.text.y = blue.bold.italic.16.text, axis.text.x = element_text(size = 8)) + scale_y_continuous(breaks = seq(0,30000,2000))  + ggtitle("Occupations")
+
+```
+
+Categories *Other* and *Professional* are the most common Occupations. None of them is very descriptive. The remaining Occupations range from 1000 to 3000 counts.
+
+**Borrower Rate**
+
+Below there is a scatter plot describing the distribution of borrower rates across the data.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE,Borrower_Rate}
+
+ggplot(aes(BorrowerRate), data = pld)+ geom_histogram() + theme_economist() + ggtitle("Borrower Rates Histogram") + xlab("Borrower Rate")
+
+```
+
+The majority of rates are within a range of 0.05 to 0.35, being around 0.15 the most common rate.
+
+**Credit Grade**
+
+Below there is a histogram displaying the credit grades across the data set
+
+```{r echo=FALSE, message=FALSE, warning=FALSE,Credit_Grade}
+pld$CreditGrade <- factor(pld$CreditGrade, levels = c("AA", "A", "B", "C", "D", "E", "HR", "NC", ""))
+
+ggplot(aes(CreditGrade), data = subset(pld, CreditGrade!=""))+ geom_histogram(stat="count") + theme_economist() + xlab("Credit Grade") + ggtitle("Credit Grade Histogram (pre-2009)")
+
+```
+
+As shown on the graph above, the distribution is normalized, being a grade of C the most common grade.
+
+**ProsperRating..Alpha.**
+
+```{r echo=FALSE, message=FALSE, warning=FALSE,ProsperRating}
+pld$ProsperRating..Alpha. <- factor(pld$ProsperRating..Alpha., levels = c("AA", "A", "B", "C", "D", "E", "HR", "NC", ""))
+
+ggplot(aes(ProsperRating..Alpha.), data = subset(pld, ProsperRating..Alpha.!=""))+ geom_histogram(stat="count") + theme_economist() + ggtitle("Prosper Rating Histogram (after July 2009)") + xlab("Prosper Rating")
+
+```
+
+The rating provided by Prosper contains the ratings after July 2009
+
+
+The information contained on both columns, Credit Grade and ProsperRating..Alpha. is complementary:
+
+
+```{r echo=FALSE,  message=FALSE, warning=FALSE,sample_columns_containing_information_ratings}
+
+ pld[49990:49999,c("ProsperRating..Alpha.", "CreditGrade")]
+
+```
+
+Thus, an extra column has been created containing the information of the two columns combined.
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE,credit_rating_columns_combined}
+
+pld$Grade.combined <-trimws( paste(pld$CreditGrade, pld$ProsperRating..Alpha.))
+
+pld$Grade.combined <- factor(pld$Grade.combined, levels = c("AA", "A", "B", "C", "D", "E", "HR", "NC", ""))
+
+ggplot(aes(Grade.combined), data = pld)+ geom_histogram(stat="count") + theme_economist() + ggtitle("Credit Grades (combination)")  + xlab("Grades combined")
+
+```
+
+Again, the histogram above is normally distributed, being C the most common rating.
+
+**Is the borrower a home owner?**
+
+After analyzing the variable *IsBorrowerHomeowner* the results are:
+
+```{r echo=FALSE, message=FALSE, warning=FALSE,IsBorroweHomeOwner}
+
+table(pld$IsBorrowerHomeowner)
+
+```
+
+There is almost a 50-50 distribution across the data set.
+
+
+**Income Range**
+
+Below there is a histogram displaying the credit grades across the data set
+```{r echo=FALSE, message=FALSE, warning=FALSE,Income_RANGE}
+bold.6.text <- element_text(face = "bold", size = 7)
+
+pld$IncomeRange <- factor(pld$IncomeRange, levels = c("$0", "$1-24,999", "$25,000-49,999", "$50,000-74,999", "$75,000-99,999","$100,000+", "Not employed","Not displayed"))
+
+ggplot(aes(IncomeRange), data = pld)+geom_histogram(stat = "count")+ theme_economist()+theme(axis.text.x= bold.6.text) + ggtitle("Income Range Histogram") + xlab("Income Range")
+
+```
+
+The most predominant income range is from 25,000 to 49,999 followed by the range 75,000 to 99,999. A surprising 15% of the individuals in the data earn more than $100,000.
+
+
+**Employment Status**
+
+```{r echo=FALSE, message=FALSE, warning=FALSE,Emplyment_Status}
+ggplot(aes(EmploymentStatus), data = pld)+geom_histogram(stat = "count")+ ggtitle("Employment Status")  + theme_economist() + theme(axis.text.x = element_text(size = 8)) 
+
+```
+
+As we can see in the graph above, the majority of the individuals in the data set are employed. Unemployed individuals (Not Employed and Retired) represent a minority.
+
+
+**Loan Original Amount**
+
+Given that there are some outliers limits have been set on the x axis.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE,Loan_Original_Amount}
+ggplot(aes(LoanOriginalAmount), data = pld) + geom_histogram() + theme_economist() + ggtitle("Loan Orginal Amount Histogram") + xlab("Loan Original Amount") + scale_x_continuous(breaks = seq(0,35000, 5000))
+
+```
+
+The majority of loans (75%) original amount is under $12,000, being around $4000 the most common amount
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, explanatorytable}
+summary(pld$LoanOriginalAmount)
+```
+
+
+# Univariate Analysis
+
+
+#### Dataset structure
+
+Each instance on the data set has extensive details about a loan, its conditions and the profile of the borrower issuing it. There are 81 variables available for each instance out, of which only 14 are going to bee analyzed. variables can be grouped into loan variables (interest rates, state, origination date, original amount...) and person variables (income range, occupation, is home owner...)
+
+#### Aim
+
+The main aim of the analysis is to find correlations between the borrower rate and the other variables. What is the reason behind some individuals getting lower borrower rates than others?
+
+
+The more financially secure the individual is the more likely the individual will get a lower borrowing rate. Owning a house or having a high salary add to financial security. Also past behavior of the individual, as having delinquencies on the record, is likely to affect the borrowing rate.
+Such information can be found on the following variables: *IncomeRange*, *Occupation*, *DelinquenciesLast7Years* or *CreditGrade*.
+
+#### Modifications to the data set
+
+The information available about credit grades was split into two columns. An extra column has been created containing the combination of both columns.
+
+
+# Bivariate Plots Section
+
+
+**Credit Grade vs Median Borrower Rate**
+
+```{r echo=FALSE,  message=FALSE, warning=FALSE, CreditRatevsBorrowRateI}
+crediRateVsBorrowRate <- pld[,c("Grade.combined", "BorrowerRate")] %>% group_by(Grade.combined) %>% summarise(mean = mean(BorrowerRate), median = median (BorrowerRate))
+```
+Then the corresponding bar chart is created
+
+
+```{r echo=FALSE,  message=FALSE, warning=FALSE, CreditRatevsBorrowRateII}
+ggplot( aes(x= reorder(Grade.combined, -median) ,y= median), data = subset(crediRateVsBorrowRate, Grade.combined != "")) + geom_bar(stat="identity") + xlab("Credit Grade") + ylab("Median Borrower Rate") + theme_economist()  + ggtitle("Credit Grade vs Median Borrower Rate")
+```
+
+It is no surprise that the Credit grades correlate linearly with the Median Borrower Rate. The better the rating the lower the borrower rate.
+
+**Borrower Rate across years**
+
+```{r echo=FALSE,  message=FALSE, warning=FALSE, Variation_rates_throughout_years}
+
+pld$LoanOriginationYear <- format(as.Date(pld[, "LoanOriginationDate"], "%Y-%m-%d"), "%Y")
+
+rates.variation <- pld %>% group_by(LoanOriginationYear) %>% summarise(meanR = median(BorrowerRate), n = n())
+
+ggplot(rates.variation, aes(LoanOriginationYear, meanR,  group = 1))  + geom_point() + geom_path() + theme_economist() + ggtitle("Borrower Rates Variation (2005-2014)") + xlab("Loan Origination Year") + ylab("Mean Borrower Rate")
+
+
+```
+
+Observing the Loan Origination Year histogram on previous section and the plot above, it seems that the mean borrower rate is a good predictor of the number of loans issued each year.
+
+**Owning a Home vs Borrow Rate**
+
+
+```{r echo=FALSE,  message=FALSE, warning=FALSE, OccupationVSBorrow_Rate_I}
+
+ggplot(pld , aes(IsBorrowerHomeowner, BorrowerRate)) + geom_boxplot() + theme_economist()
+
+```
+
+```{r echo=FALSE,  message=FALSE, warning=FALSE, homeOwnerVsNot}
+table(by(pld$BorrowerRate, pld$IsBorrowerHomeowner, median))
+
+```
+
+
+The Borrower rate median is almost 2 points lower for individuals that own a home (median) than for individuals who does not.
+
+**Occupation vs Borrow Rate**
+
+The graph below represents the median aggregated borrower rate by Occupation.
+
+```{r echo=FALSE,  message=FALSE, warning=FALSE, OccupationvsBorrowRateI}
+ occupationVsBorrowrate <- pld[,c("Occupation", "BorrowerRate")] %>% group_by(Occupation) %>% summarise(mean = mean(BorrowerRate), median = median (BorrowerRate))
+
+```
+
+
+```{r echo=FALSE,  message=FALSE, warning=FALSE, OccupationvsBorrowRateII}
+bold.6.text <- element_text(face = "bold", size = 5) 
+ggplot( aes(x= reorder(Occupation, -median) ,y= median), data = occupationVsBorrowrate) + geom_bar(stat="identity") + coord_flip() + theme_economist() + theme(axis.text.y = bold.6.text) +ylab("median borrower rate") + xlab("Occupation") + ggtitle("Occupation vs Median Borrower Rate")
+
+```
+
+Seems that Higher Education jobs correlate with lower Borrower rate. Judge, Doctor and Pharmacist are the occupations with the lowest aggregated median borrower rate whereas Teacher´s Aide, Nurse´s Aide and Student - College Freshman are getting the highest.
+
+
+# Bivariate Analysis
+
+On this section it has been analysed the correlation between Credit Grade and Borrow Rate. It is no surprise that better credit grades correlate with lower borrower rates. Also owning a house improves the borrower rates.
+
+The variation of aggregated borrower rates throughout the years available on the data set had also been analysed. The mean borrower rates decreased from 2006 to 2008, hitting a minimum on that year. After 2008, when the financial crisis cracked, the rates increased steadily for 3 years, topping at 2011.
+
+On the last section of this analysis, the relationship between Borrower Rates and Occupation was analysed. Taking the aggregated mean borrower rate per Occupation it was found that Higher education jobs correlated with lower borrowing rates. Also lower education jobs, such as *Teacher's Aide*, correlated with higher borrowing rates.
+
+Next section is going to be focused to deepen on that issue. Top and bottom 10 Occupations by borrowing rates are going to be analysed in detail.
+
+
+# Multivariate Plots Section
+
+As mentioned on previous section, the top and bottom 10 Occupations by median borrower rate are going to be analyzed in further depth.
+
+
+```{r, echo=FALSE,  message=FALSE, warning=FALSE, df_top_bottom_10_Occupations_BR}
+
+top10.occupations <- subset(pld, Occupation %in% c("Judge", "Doctor", "Pharmacist", "Computer Programmer", "Engineer - Electrical", "Scientist", "Attorney", "Engineer - Chemical", "Pilot - Private/Commercial", "Military Officer"))
+
+bottom10.occupations <- subset(pld, Occupation %in% c("Teacher's Aide", "Nurse's Aide", "Student - College Freshman", "Administrative Assistant", "Bus Driver", "Clerical", "Laborer", "Student - Community College", "Food Service", "Sales - Retail"))
+```
+
+For each Occupation set the following variables are going to be analysed:
+* Credit Grade
+* Income Range
+* Is home owner?
+* Delinquencies on last 7 years
+* Loan Original Amount
+
+**Credit Grade**
+
+```{r, echo=FALSE,  message=FALSE, warning=FALSE, Credit_Rate}
+#top data frame
+text_element <- element_text(size = 6)
+top10.occupations$Grade.combined <- factor(top10.occupations$Grade.combined, levels = c("AA", "A", "B", "C", "D", "E", "HR", "NC", ""))
+plot1 <- ggplot(aes(Grade.combined), data = top10.occupations[top10.occupations$Grade.combined != "",])+ geom_histogram(stat = "count", aes(fill = Occupation)) + theme_economist() + theme(legend.text = text_element) + xlab("Credit Grade")+ ggtitle("Top 10 Occupations")
+
+bottom10.occupations$Grade.combined <- factor(bottom10.occupations$Grade.combined, levels = c("AA", "A", "B", "C", "D", "E", "HR", "NC", ""))
+#bottom data frame
+plot2 <- ggplot(aes(Grade.combined), data = subset(bottom10.occupations, Grade.combined != ""))+ geom_histogram(stat = "count", aes(fill = Occupation)) + theme_economist() + theme(legend.text = text_element) + xlab("Credit Grade")+ ggtitle("Bottom 10 Occupations")
+
+grid.arrange(plot1, plot2, ncol =1)
+```
+
+Given that the Occupations were classified by Borrowing rate, and it has been shown that borrowing rate correlates with Credit Grades, it is no surprise that *Top 10 Occupations* get better credit grades. The mode Credit Grade for top 10 occupations is **A** wheres for bottom 10 occupations is two grades a lower, a **C**.
+
+**Income Range**
+
+```{r, echo=FALSE,  message=FALSE, warning=FALSE, income_range}
+top10.occupations$IncomeRange <- factor(top10.occupations$IncomeRange, levels = c("$0", "$1-24,999", "$25,000-49,999", "$50,000-74,999", "$75,000-99,999", "$100,000+", "Not displayed"))
+
+plot1 <- ggplot(aes(IncomeRange), data = top10.occupations)+ geom_histogram(stat = "count", aes(fill = Occupation)) + theme_economist() + theme(legend.text = text_element, axis.text.x = element_text( size = 8)) + xlab("Income Range") + ggtitle("Top 10 Occupations")
+
+bottom10.occupations$IncomeRange <- factor(bottom10.occupations$IncomeRange, levels = c("$0", "$1-24,999", "$25,000-49,999", "$50,000-74,999", "$75,000-99,999", "$100,000+", "Not displayed", "Not employed"))
+
+plot2 <- ggplot(aes(IncomeRange), data = bottom10.occupations[bottom10.occupations$IncomeRange != "Not employed",])+ geom_histogram(stat = "count", aes(fill = Occupation)) + theme_economist() + theme(legend.text = text_element, axis.text.x = element_text( size = 8)) + xlab("Income Range") + ggtitle("Bottom 10 Occupations")
+
+grid.arrange(plot1, plot2, ncol =1)
+
+```
+
+Individuals that are in the top 10 occupations group earn significantly more than the bottom 10 group individuals. The mode for top 10 occupations group is $100,000+ wheres for the bottom 10 occupations group is $25,000-49,999.
+
+**Is home owner?**
+
+```{r, echo=FALSE,  message=FALSE, warning=FALSE, is_home_owner}
+
+ihot <- as.data.frame(table(top10.occupations$IsBorrowerHomeowner))
+ihot$Freq <- ihot$Freq/cumsum(ihot$Freq)[length(ihot)]
+plot1 <- ggplot(data = ihot, aes(Var1, Freq)) + geom_histogram(stat = "identity")+ xlab("Is borrower home owner?") + theme_economist()+ ggtitle("Top 10 Occupations")
+
+ihob <- as.data.frame(table(bottom10.occupations$IsBorrowerHomeowner))
+ihob$Freq <- ihob$Freq/cumsum(ihob$Freq)[length(ihob)]
+plot2 <- ggplot(data = ihob, aes(Var1, Freq)) + geom_histogram(stat = "identity")+ xlab("Is borrower home owner?") + theme_economist()+ ggtitle("Bottom 10 Occupations")
+
+grid.arrange(plot1, plot2, ncol=1)
+```
+
+Again there is a significant difference between the two groups. The proportion of individuals among top 10 occupations group that own a home is 20% higher.
+
+**Delinquencies in last 7 years**
+
+```{r, echo=FALSE,  message=FALSE, warning=FALSE, delinquencies_last_7_years}
+#dataframe with info
+top10.occupations$Delinquencies <- ifelse(top10.occupations$DelinquenciesLast7Years == 0,"No","Yes")
+top10.occupations$Class <- "top 10"
+
+bottom10.occupations$Delinquencies <- ifelse(bottom10.occupations$DelinquenciesLast7Years == 0,"No","Yes")
+bottom10.occupations$Class <- "bottom 10"
+
+joint <- rbind(top10.occupations, bottom10.occupations)
+a2 <- count(joint, Delinquencies, Class) %>% group_by(Class) %>% mutate(prop = n /sum(n))
+
+ggplot(a2, aes(Class , y = prop, fill = Delinquencies)) + geom_col() + coord_flip() + theme_economist() + geom_text(aes(label = scales::percent(a2$prop)), position = position_stack(vjust = 0.5))
+
+```
+
+Individuals on the bottom 10 Occupations group are more likely to have delinquencies on past 7 years. There is a 12.6% difference between the two groups.
+
+```{r, echo=FALSE,  message=FALSE, warning=FALSE, Comparing_delinquent_borrowers}
+#dataframe with info
+top10.occupations$Delinq.range <- cut(top10.occupations$DelinquenciesLast7Years, breaks = c(0,5,10,20,30,40,50,100))
+
+plot1<- ggplot(data = subset(top10.occupations, Delinquencies == "Yes"), aes(DelinquenciesLast7Years)) + geom_histogram(aes(fill= Delinq.range), binwidth = 1) + theme_economist() + scale_x_continuous(breaks = c(0,5,10,20,30,40,50,100)) + geom_smooth(stat="count") + ggtitle("Top 10 Occupations")
+
+bottom10.occupations$Delinq.range <- cut(bottom10.occupations$DelinquenciesLast7Years, breaks = c(0,5,10,20,30,40,50,100))
+
+plot2 <- ggplot(data = subset(bottom10.occupations, Delinquencies == "Yes"), aes(DelinquenciesLast7Years)) + geom_histogram(aes(fill= Delinq.range), binwidth = 1) + theme_economist() + scale_x_continuous(breaks = c(0,5,10,20,30,40,50,100)) + theme(legend.position = "none") + geom_smooth(stat="count") + ggtitle("Bottom 10 Occupations")
+
+ggarrange(plot1, plot2, ncol = 1, nrow = 2,  common.legend = TRUE, legend="bottom")
+
+```
+
+#### Top 10 Occupations delinquencies summary
+
+
+```{r echo=FALSE, delinquenciestop}
+summary(top10.occupations$DelinquenciesLast7Years)
+
+```
+
+#### Bottom 10 Occupations delinquencies summary
+
+```{r echo=FALSE, delinquenciesbottom}
+summary(bottom10.occupations$DelinquenciesLast7Years)
+```
+
+
+```{r, echo=FALSE,  message=FALSE, warning=FALSE, Comparing_delinquent_proportions}
+a1 <-  count(subset(top10.occupations, Delinquencies == "Yes"), Delinq.range)%>% mutate(prop = n/sum(n))
+  plot1 <- ggplot(data = a1, aes(Delinq.range, prop, fill = Delinq.range)) + geom_bar(stat = "identity") +geom_text(aes(label = scales::percent(a1$prop)), position = position_stack(vjust = 0.5)) + theme_economist() + theme(legend.position = "right")  + ggtitle("Top 10 Occupations")
+
+a2 <-  count(subset(bottom10.occupations, Delinquencies == "Yes"), Delinq.range)%>% mutate(prop = n/sum(n))
+plot2 <- ggplot(data = a2, aes(Delinq.range, prop, fill = Delinq.range)) + geom_bar(stat = "identity") + geom_text(aes(label = scales::percent(a2$prop)), position = position_stack(vjust = 0.5)) + theme_economist() + theme(legend.position="none") + ggtitle("Bottom 10 Occupations")
+
+ggarrange(plot1, plot2, ncol = 1, nrow = 2,  common.legend = TRUE, legend="bottom")
+
+```
+
+Out of the individuals with delinquencies on their record, those in the bottom 10 groups have a higher number of delinquencies on average. The mean of delinquencies is around 50% higher. 
+
+**Loan Original Amount**
+
+```{r, echo=FALSE,  message=FALSE, warning=FALSE, Loan_Original_Amount1}
+top10.occupations$OriginalAmountRange <- cut(top10.occupations$LoanOriginalAmount, seq(0, 35000, 5000))
+
+labels.formated <-c("0-5,000", "5,000-10,000", "10,000-15,000", "15,000-20,000", "20,000-25,000", "25,000-30,000", "30,000-35,000")
+
+plot1<-ggplot(top10.occupations, aes(OriginalAmountRange)) + geom_histogram(stat = "count", aes(fill= Occupation)) + scale_x_discrete( labels =  labels.formated)  + theme_economist() + theme(axis.text.x =element_text(size = 6, face = "bold"), legend.text = element_text(size = 6)) + xlab("Loan Original Amount") + ggtitle("Top 10 Occupations")
+
+bottom10.occupations$OriginalAmountRange <- cut(bottom10.occupations$LoanOriginalAmount, seq(0, 35000, 5000))
+
+plot2<-ggplot(bottom10.occupations, aes(OriginalAmountRange)) + geom_histogram(stat = "count", aes(fill= Occupation)) + scale_x_discrete( labels =labels.formated) + theme_economist() + theme(axis.text.x =element_text(size = 6, face = "bold"), legend.text = element_text(size = 6)) + xlab("Loan Original Amount") + ggtitle("Bottom 10 Occupations")
+
+grid.arrange(plot1, plot2)
+
+```
+
+#### Top 10 Occupations Loan Original Amount summary
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, Summary_Loan_Orginal_amount_top10Occupations}
+summary(top10.occupations$LoanOriginalAmount)
+```
+
+#### Bottom 10 Occupations Loan Original Amount summary
+
+```{r, echo=FALSE,  message=FALSE, warning=FALSE, Summary_Loan_Orginal_amount_bot10Occupations}
+summary(bottom10.occupations$LoanOriginalAmount)
+```
+**Loan Original Amount Proportions**
+
+```{r echo=FALSE,  message=FALSE, warning=FALSE, Loan_Original_Amount_Proportions}
+
+a1<- count(top10.occupations, OriginalAmountRange, Occupation)%>% mutate(prop = n/sum(n))
+
+plot1 <- ggplot(a1, aes(OriginalAmountRange, prop)) + geom_histogram(stat = "identity",aes(fill=Occupation))+ scale_x_discrete(labels = labels.formated) + theme_economist() + theme(axis.text.x = element_text(size = 6, face = "bold"), legend.text = element_text(size = 6)
+) + xlab("Loan Original Amount") + ggtitle("Top 10 Occupations")
+
+a2<- count(bottom10.occupations, OriginalAmountRange, Occupation)%>% mutate(prop = n/sum(n))
+
+plot2 <- ggplot(a2, aes(OriginalAmountRange, prop)) + geom_histogram(stat = "identity",aes(fill=Occupation))+ scale_x_discrete(labels = labels.formated) + theme_economist() + theme(axis.text.x = element_text(size = 6, face = "bold"), legend.text = element_text(size = 6)
+) + xlab("Loan Original Amount") + ggtitle("Bottom 10 Occupations")
+grid.arrange(plot1, plot2)
+```
+
+
+Although the top 10 Occupations group is getting lower borrower rates, by observing the median loan original amount, they seem to be getting loans of an original amount around twice as bigger as those for the bottom 10 occupations group.
+
+
+```{r , echo=FALSE,  message=FALSE, warning=FALSE, Exploring_other_variables}
+
+explore.variables <- c("BorrowerRate",  "IsBorrowerHomeowner", "IncomeRange", "EmploymentStatus", "OpenRevolvingAccounts", "Recommendations","Investors")
+
+plot <- ggpairs(pld, explore.variables)
+
+ggsave("exploration.png", plot, device = "png")
+
+top15.states <- names(sort(table(pld$BorrowerState), decreasing = TRUE)[1:15])
+
+
+```
+
+
+**Analysis by State**
+
+
+```{r, echo=FALSE,  message=FALSE, warning=FALSE, Analysis_by_State}
+
+
+charToNum <- function(x){
+if ( x == "AA") {number = 6}
+else if (x == "A") {number = 5}
+else if (x == "B") {number = 4}
+else if (x == "C") {number = 3}
+else if (x == "D") {number = 2}
+else if (x == "E") {number = 1}
+else if (x == "HR") {number = 0}
+else if (x == "NC") {number = -1}
+else {number=-1}
+return (number)}
+
+
+pld$Grade.combined.numeric <- sapply(pld$Grade.combined, charToNum)
+
+
+
+states.analysis <- pld%>% group_by(BorrowerState) %>% summarise(BorrowerRate= mean(BorrowerRate), GradeNumeric = mean(Grade.combined.numeric), n= n(), letterSize = n()/14717+2)
+
+ggplot(states.analysis, aes(GradeNumeric, BorrowerRate, label = BorrowerState)) + geom_point(aes(size = n, color = BorrowerState))+ geom_text(aes(label=BorrowerState),hjust=0, vjust=0, size = states.analysis$letterSize) + theme_economist()+ theme(legend.position="none") + xlim(2.65, 3.42) + ggtitle("Mean Borrower Rate vs Credit Grade (per State)")+ xlab("Numeric Credit Grade")
+
+```
+
+Most of the states fall within the same linear correlation between Grade and Borrower Rate, however, there are some exceptions. Iowa and Maine seem to get exceptionally lower rates for the given credit grade.
+
+**Why Iowa and Maine are getting cheaper rates?**
+
+**Iowa**
+
+```{r, echo=FALSE,  message=FALSE, warning=FALSE, Analysisng_Iowa_data}
+
+labels <- c("Debt Consolidation","Home Improvement", "Business", "Personal Loan", "Student Use", "Auto","Other", "Baby&Adoption", "Boat", "Cosmetic Procedure", "Engagement Ring", "Green Loans", "Household Expenses", "Large Purchases", "Medical/Dental", "Motorcycle", "RV", "Taxes", "Vacation", "Wedding Loans", "Not Available")
+
+numToChar <- function(x){
+if (x == 0) {output = "Not Available"}
+else if (x %in% 1:20) {output = labels[x]}
+else {output=-1}
+return (output)}
+
+pld$ListingCategory <- sapply(pld$ListingCategory..numeric. , numToChar)
+
+ggplot(subset(pld,BorrowerState == "IA"), aes(Grade.combined.numeric, BorrowerRate)) + geom_point(aes(color = ListingCategory, shape = ListingCategory), alpha = 0.8)+ theme_economist() + theme(legend.text = element_text(size=8, face = "bold")) + scale_x_continuous(breaks = 0:6, labels = c( "HR", "E", "D", "C", "B", "A", "AA")) + ggtitle("Borrower Rate vs Credit Grade in Iowa (dif. Listing Categories)") + xlab("Credit Grade") + ylab("Borrower Rate")
+
+```
+
+**Maine**
+
+```{r, echo=FALSE,  message=FALSE, warning=FALSE, Analysisng_Maine_data}
+
+ggplot(subset(pld,BorrowerState == "ME"), aes(Grade.combined.numeric, BorrowerRate)) + geom_point(aes(color = ListingCategory, shape = ListingCategory), alpha = 0.8)+ theme_economist() + theme(legend.text = element_text(size=8, face = "bold")) + scale_x_continuous(breaks = 0:6, labels = c( "HR", "E", "D", "C", "B", "A", "AA")) + ggtitle("Borrower Rate vs Credit Grade in Maine (dif. Listing Categories)") + xlab("Credit Grade") + ylab("Borrower Rate")
+```
+
+Being *Not Available* the most common listing category for both states, it is difficult to identify any specific listing category that is getting better Borrower rates. Despite of that, the borrower rates for each listing categories seem to correlate with the credit Grade obtained.
+
+In Maine seems that business get worse Borrower rates than other listing categories.
+
+
+**Using GGally to explore more variables variables**
+
+Listing Categories do not provide much insight explaining the differences in Borrower rates among states. Thus to explain the differences between Maine, Iowa and the rest of the States, more variables have been analysed using ggally.
+The variables analysed are:
+
+1.BorrowerRate
+2.LoanOriginationYear
+3.IsBorrowerHomeowner
+4.IncomeRange
+5.EmploymentStatus
+6.OpenRevolvingAccounts
+7.Recommendations
+8.Investors
+
+
+**Maine Variables**
+
+```{r , echo=FALSE,  message=FALSE, warning=FALSE, Exploring_other_variables_MEI}
+
+explore.variables <- c("BorrowerRate", "LoanOriginationYear", "IsBorrowerHomeowner", "IncomeRange", "EmploymentStatus", "OpenRevolvingAccounts", "Recommendations","Investors")
+
+ggpairs(droplevels(subset(pld, BorrowerState== "ME")), explore.variables)
+```
+
+**All States But Maine Variables**
+
+```{r , echo=FALSE,  message=FALSE, warning=FALSE, Exploring_other_variables_excluding_MEI}
+
+explore.variables <- c("BorrowerRate", "LoanOriginationYear", "IsBorrowerHomeowner", "IncomeRange", "EmploymentStatus", "OpenRevolvingAccounts", "Recommendations","Investors")
+
+ggpairs(droplevels(subset(pld, BorrowerState!= "ME")), explore.variables)
+```
+
+**Comparaison**
+
+```{r echo=FALSE,  message=FALSE, warning=FALSE, Multivariate_Plots}
+
+plot1 <- ggplot( droplevels(subset(pld, BorrowerState!= "ME")), aes(LoanOriginationYear))+ geom_histogram(stat = "count") + ggtitle("All states but Maine") + theme_economist() + theme(axis.text.x  = element_text(size=7)) + xlab("Loan Origination Year")
+
+plot2 <- ggplot(droplevels(subset(pld, BorrowerState == "ME")), aes(LoanOriginationYear))+ geom_histogram(stat="count")+ggtitle("Maine") + theme_economist() + xlab("Loan Origination Year")
+
+plot4 <- ggplot(droplevels(subset(pld, BorrowerState== "ME")), aes(IsBorrowerHomeowner)) + geom_histogram(stat ="count")+ theme_economist()+ xlab("Is Borrower Home Owner?")
+
+plot3 <- ggplot(droplevels(subset(pld, BorrowerState!= "ME")), aes(IsBorrowerHomeowner)) + geom_histogram(stat ="count") + theme_economist() + xlab("Is Borrower Home Owner?")
+
+
+
+grid.arrange(plot1, plot2, plot3,plot4, ncol=2)
+
+
+```
+
+As observed on previous sections, both owning a home and the loan origination year correlate with Borrower rates.
+
+In the case of Maine, the majority of loans were originated is 2008, whereas for the rest of the data the majority of loans were originated 2013. As observed on previous sections, the median borrower rate is higher in 2013 than 2008. That accounts for some of the differences in Borrower rate observed between Maine and the rest of states. Also there are more home owners in Maine than in the rest of the states.
+
+
+**Iowa Variables**
+
+```{r , echo=FALSE,  message=FALSE, warning=FALSE, Exploring_other_variables_ME}
+
+explore.variables <- c("BorrowerRate", "LoanOriginationYear", "IsBorrowerHomeowner", "IncomeRange", "EmploymentStatus", "OpenRevolvingAccounts", "Recommendations","Investors")
+
+ggpairs(droplevels(subset(pld, BorrowerState== "IA")), explore.variables)
+```
+
+**All States But Iowa Variables**
+
+```{r , echo=FALSE,  message=FALSE, warning=FALSE, Exploring_other_variables_excluding_MEII}
+
+explore.variables <- c("BorrowerRate", "LoanOriginationYear", "IsBorrowerHomeowner", "IncomeRange", "EmploymentStatus", "OpenRevolvingAccounts", "Recommendations","Investors")
+
+ggpairs(droplevels(subset(pld, BorrowerState!= "IA")), explore.variables)
+```
+
+**Comparaison**
+
+```{r echo=FALSE,  message=FALSE, warning=FALSE, Multivariate_PlotsI}
+
+plot1 <- ggplot( droplevels(subset(pld, BorrowerState!= "IA")), aes(LoanOriginationYear))+ geom_histogram(stat = "count") + ggtitle("All states but Iowa") + theme_economist() + theme(axis.text.x  = element_text(size=7)) + xlab("Loan Origination Year")
+
+plot2 <- ggplot(droplevels(subset(pld, BorrowerState == "IA")), aes(LoanOriginationYear))+ geom_histogram(stat="count")+ggtitle("Iowa") + theme_economist() + xlab("Loan Origination Year")
+
+plot4 <- ggplot(droplevels(subset(pld, BorrowerState== "IA")), aes(IsBorrowerHomeowner)) + geom_histogram(stat ="count")+ theme_economist()+ xlab("Is Borrower Home Owner?")
+
+plot3 <- ggplot(droplevels(subset(pld, BorrowerState!= "IA")), aes(IsBorrowerHomeowner)) + geom_histogram(stat ="count") + theme_economist() + xlab("Is Borrower Home Owner?")
+
+
+grid.arrange(plot1, plot2, plot3,plot4, ncol=2)
+
+```
+
+The results obtained are similar to those obtained from Maine variables. The majority of loans were created in 2008 and the majority of borrowers own a house.
+
+
+# Multivariate Analysis
+
+On this section multiple variables have been analysed with the purpose of finding correlations with the borrower rate. Following the same procedure as in previous section the data has been grouped by top and bottom 10 Occupations groups sorted by borrower rate.
+
+Individuals on the top 10 Occupations group earn more, are more likely to own a house and have less delinquencies on their record. On the other hand, individuals on the bottom 10 Occupations group earn less, are less likely to own a house and have more delinquencies on their record.
+
+Aside from the classification by Occupation, it also has been analysed how borrower rate varied by state. The data has been grouped by state and the aggregated mean borrower rate and mean credit grade (numeric) have been calculated. All states fell within a 
+
+The corresponding representation for each state of borrower rate vs credit grade fall within the same line for most of states, with the exception of Iowa and Maine, which have extraordinary low borrower rates for the given mean credit grade. Therefore, these states have been analysed more in depth, so to understand the primary reason behind these differences. Seems that in the data instances representing those states, there is a higher number of home owners than in the aggregated mean of the remaining states. In addition, in these states the majority of loans were created on 2008, year in which the mean borrower rates were lower than in 2013 (year the majority of loans were created for the rest of states).
+
+
+------
+
+# Final Plots and Summary
+
+The data has been grouped by Occupation and then compared by its aggregated mean borrower rate. The occupations that get the best and worst borrower rates are represented on the table below:
+
+| Top 10 Occupations         | Bottom 10 Occupations       |
+|----------------------------|-----------------------------|
+| Judge                      | Teacher's Aide              |
+| Doctor                     | Nurse's Aide                |
+| Pharmacist                 | Student - College Freshman  |
+| Computer Programmer        | Administrative Assistant    |
+| Engineer - Electrical      | Bus Driver                  |
+| Scientist                  | Clerical                    |
+| Attorney                   | Laborer                     |
+| Engineer - Chemical        | Student - Community College |
+| Pilot - Private/Commercial | Food Service                |
+| Military Officer           | Sales - Retail              |
+
+All the top 10 Occupations are higher education Occupations whereas the bottom 10 are not. To better Understand the reasons behind this individuals getting better rates the following variables have been analysed in relation to the borrower rate:
+
+* **Income Range**
+* **Does the borrower own a home**
+* **Delinquencies In Past 7 Years**
+
+### Income Range Differences Plot
+
+```{r echo=FALSE,  message=FALSE, warning=FALSE, Plot_One}
+
+top10.occupations$IncomeRange <- factor(top10.occupations$IncomeRange, levels = c("$0", "$1-24,999", "$25,000-49,999", "$50,000-74,999", "$75,000-99,999", "$100,000+", "Not displayed"))
+
+plot1 <- ggplot(aes(IncomeRange), data = top10.occupations)+ geom_histogram(stat = "count", aes(fill = Occupation)) + theme_economist() + theme(legend.text = text_element, axis.text.x = element_text( size = 8)) + xlab("Income Range") + ggtitle("Top 10 Occupations")
+
+bottom10.occupations$IncomeRange <- factor(bottom10.occupations$IncomeRange, levels = c("$0", "$1-24,999", "$25,000-49,999", "$50,000-74,999", "$75,000-99,999", "$100,000+", "Not displayed", "Not employed"))
+
+plot2 <- ggplot(aes(IncomeRange), data = bottom10.occupations[bottom10.occupations$IncomeRange != "Not employed",])+ geom_histogram(stat = "count", aes(fill = Occupation)) + theme_economist() + theme(legend.text = text_element, axis.text.x = element_text( size = 8)) + xlab("Income Range") + ggtitle("Bottom 10 Occupations")
+
+grid.arrange(plot1, plot2, ncol =1)
+
+```
+
+### Description
+
+There is an outstanding difference in income ranges between the two groups. The majority of individuals belonging to the top 10 Occupations group are in the \$100,000+ range. However, the majority of individuals on the bottom 10 Occupations group earn between \$25,000 and \$49,999. It can be assumed that at least individuals on the top 10 group earn at least twice as much per year.
+
+### Home Owner Differences Plot
+
+```{r echo=FALSE,  message=FALSE, warning=FALSE, Plot_Two}
+
+ihot <- as.data.frame(table(top10.occupations$IsBorrowerHomeowner))
+ihot$Freq <- ihot$Freq/cumsum(ihot$Freq)[length(ihot)]
+plot1 <- ggplot(data = ihot, aes(Var1, Freq)) + geom_histogram(stat = "identity")+ xlab("Is borrower home owner?") + theme_economist()+ ggtitle("Top 10 Occupations")
+
+ihob <- as.data.frame(table(bottom10.occupations$IsBorrowerHomeowner))
+ihob$Freq <- ihob$Freq/cumsum(ihob$Freq)[length(ihob)]
+plot2 <- ggplot(data = ihob, aes(Var1, Freq)) + geom_histogram(stat = "identity")+ xlab("Is borrower home owner?") + theme_economist()+ ggtitle("Bottom 10 Occupations")
+
+grid.arrange(plot1, plot2, ncol=1)
+
+```
+
+### Description
+
+The proportion of individuals from Top 10 Occupations group that own a home is significantly higher. Around 60% of those own a home on average, whereas only less than 40% of individuals from bottom 10 occupations group do. That accounts for more than a 20% difference.
+
+
+### Delinquencies In Past 7 Years Plot
+
+```{r echo=FALSE,  message=FALSE, warning=FALSE, Plot_Three}
+top10.occupations$Delinquencies <- ifelse(top10.occupations$DelinquenciesLast7Years == 0,"No","Yes")
+top10.occupations$Class <- "top 10 Occupations"
+
+bottom10.occupations$Delinquencies <- ifelse(bottom10.occupations$DelinquenciesLast7Years == 0,"No","Yes")
+bottom10.occupations$Class <- "bottom 10 Occupations"
+
+joint <- rbind(top10.occupations, bottom10.occupations)
+a2 <- count(joint, Delinquencies, Class) %>% group_by(Class) %>% mutate(prop = n /sum(n))
+
+ggplot(a2, aes(Class , y = prop, fill = Delinquencies)) + geom_col() + coord_flip() + theme_economist() + geom_text(aes(label = scales::percent(a2$prop)), position = position_stack(vjust = 0.5))
+
+```
+
+### Description
+
+Again there is a significant difference between the two groups. Only 23,5% individuals from the top 10 occupations group have delinquencies on their record from past 7 years, compared to the 35,6% from the other group.
+
+------
+
+# Reflection
+
+The Prosper loan data set contains information on 113,937 loans across 81 variables.From the start of the analysis I was interested in the borrower rates and what other variable could correlate to it. Out of the 81 available variables, I only analysed in depth those that I considered would correlate to the borrower rate, such as the income range.
+
+On the second section, by observing the occupations that got the best rates I realized that individuals with higher educations occupations seems to get the best rates. Then I carried on with the analysis, grouping the instances on the data set by top and bottom 10 occupations. Apart from having higher rank occupations, what other reasons could explain the better rates individuals on this group got.
+
+These individuals with a better borrower rate and also higher education jobs, are also more likely to own a house, have a higher income and are less likely to have delinquencies on their record on the past 7 years. Individuals who got the worst Borrowing rates also have Low Education jobs. They are less likely to own a house and are more likely to have delinquencies on their record on the last 7 years. Out of the individuals with delinquencies from both groups, top and bottom, those belonging to the latter have on average a number of delinquencies 50% higher compared to those belonging to the former.
+
+To my surprise, the group of individuals getting lower borrower rates were getting loans which original amount, taking the median, were twice as large as those from the group getting higher borrower rates.
+
+
+Income range, likelihood of owning a house and delinquencies on the record are surely some of the variables that account for the differences in borrower rates between the two groups. However, to better understand the reasons behind these differences more variables have to be taken into account in future analysis. In addition, the current analysis has been based on the top and bottom 10 occupations by borrower rate, which account for around 20% of all the data available on the data set. Using the remaining 80% of the data to explore the very variables on which this analysis has been centered, could lead to further insights and conclusions about these variables.
+
